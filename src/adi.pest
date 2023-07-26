@@ -1,0 +1,174 @@
+// ADIF Data Types
+
+adt_digit = { ASCII_DIGIT }
+
+adt_integer = { ("-")? ~ adt_digit+ }
+
+adt_positive_integer = { adt_digit+ }
+
+adt_number = { ("-")? ~ adt_digit* ~ "." ~ adt_digit+ }
+
+adt_boolean = { (^"Y") | (^"N") }
+
+adt_character = { !("<" | ">") ~ (' '..'~') }
+
+adt_string = { adt_character+ }
+
+adt_multi_string = { adt_string ~ NEWLINE* }
+
+adt_character_except_some = _{ !("{" | "}") ~ adt_character }
+
+adt_enumeration = { 
+    "{" ~ 
+    adt_character_except_some+ ~
+    ("," ~ adt_character_except_some+)* ~
+    "}" 
+}
+
+// Year YYYY from 1900..2099
+
+year = {
+    "19" ~ adt_digit{2} |
+     "20" ~ adt_digit{2}
+}
+
+// Month MM from 01..12
+
+month = {
+    "0" ~ ASCII_NONZERO_DIGIT |
+     "1" ~ ('0'..'2')
+}
+
+// Day DD from 01..31
+
+day = {
+    "0" ~ ASCII_NONZERO_DIGIT |
+     ("1" | "2") ~ adt_digit | 
+     "3" ~ ("0" | "1")
+}
+
+adt_date = { year ~ month ~ day }
+
+hour = { ("0" | "1") ~ adt_digit | "2" ~ ('0'..'3') }
+
+minute = { ('0'..'5') ~ adt_digit }
+
+second = { ('0'..'5') ~ adt_digit }
+
+adt_time = { hour ~ minute ~ second }
+
+grid_square_char_group_first = {
+    (!(('S'..'Z') | ('s'..'z')) ~ ASCII_ALPHA){2}
+}
+
+grid_square_char_group_next = {
+    (!(('Y'..'Z') | ('y'..'z')) ~ ASCII_ALPHA){2}
+}
+
+grid_square_dig_group = { adt_digit{2} }
+
+adt_grid_square = {
+    grid_square_char_group_first ~ 
+    (grid_square_dig_group? ~ 
+    (grid_square_char_group_next? ~ 
+    (grid_square_dig_group?)))
+}
+
+adt_grid_square_list = { adt_grid_square ~ ("," ~ adt_grid_square)* }
+
+direction = { ^"E" | ^"W" | ^"N" | ^"S" }
+
+degree = {
+    ("0" ~ adt_digit ~ adt_digit | "1" ~ !("8" | "9") ~ adt_digit ~ adt_digit | "180") 
+}
+
+adt_location = {
+    direction ~
+    degree ~
+    " " ~
+    second ~
+    "." ~
+    adt_digit{3}
+}
+
+
+/// ADIF Data Specifier
+
+field_name = {
+    ASCII_ALPHANUMERIC+ ~
+    ("_" ~ ASCII_ALPHANUMERIC+)*
+}
+
+type_indicator = { ^"B" | ^"N" | ^"D" | ^"T" | ^"S" | ^"M" | ^"E" | ^"L" }
+
+end_of_data = {
+    NEWLINE |
+    EOI | 
+    &"<"
+}
+
+data = {
+     (adt_enumeration ~ end_of_data) |
+     (adt_number ~ end_of_data) | 
+     (adt_time ~ end_of_data) | 
+     (adt_date ~ end_of_data) |
+     (adt_positive_integer ~ end_of_data) | 
+     (adt_integer ~ end_of_data) | 
+     (adt_grid_square ~ end_of_data) |
+     (adt_location ~ end_of_data) |
+     (adt_string ~ end_of_data) |
+     (adt_multi_string ~ end_of_data) | 
+     (adt_boolean ~ end_of_data)  
+}
+
+data_specifier = {
+    "<" ~
+    field_name ~
+    ":" ~
+    adt_positive_integer ~
+    (":" ~ type_indicator)? ~
+    ">" ~
+    data // TODO: can be empty string? Can be just NEWLINE?
+}
+
+/// ADIF file header
+
+end_of_header = { ^"<EOH>" ~ NEWLINE* }
+
+header = {
+    !("<") ~
+    adt_multi_string ~
+    data_specifier* ~
+    end_of_header
+}
+
+/// ADIF file record
+
+end_of_record = { ^"<EOR>" ~ NEWLINE* }
+
+record = {
+    data_specifier+ ~
+    end_of_record
+}
+
+/// ADI file 
+
+adi = { 
+    SOI ~ NEWLINE* ~
+//    data_specifier ~ NEWLINE* ~
+//    field_name ~ NEWLINE* ~
+//    adt_enumeration* ~ NEWLINE* ~
+//    adt_number* ~ NEWLINE* ~
+//    adt_time* ~ NEWLINE* ~
+//    adt_date* ~ NEWLINE* ~
+//    adt_positive_integer* ~ NEWLINE* ~
+//    adt_integer* ~ NEWLINE* ~
+//    adt_grid_square* ~ NEWLINE* ~
+//    adt_location* ~ NEWLINE* ~
+//    adt_string* ~ NEWLINE* ~
+//    adt_multi_string* ~ NEWLINE* ~
+//    adt_boolean* ~ NEWLINE* ~
+    header* ~ NEWLINE* ~
+    record+ ~ NEWLINE* ~
+    EOI
+}
