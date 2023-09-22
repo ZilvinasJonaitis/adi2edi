@@ -10,11 +10,14 @@ adt_number = { ("-")? ~ adt_digit* ~ "." ~ adt_digit+ }
 
 adt_boolean = { (^"Y") | (^"N") }
 
-adt_character = { !("<" | ">") ~ (' '..'~') }
+// adt_character = { !("<" | ">") ~ (' '..'~') }
+adt_character = { (' '..'~') }
 
-adt_string = { adt_character+ }
 
-adt_multi_string = { adt_string ~ NEWLINE* }
+adt_string = { (!end_of_data ~ adt_character)+ | "" }
+
+adt_multi_string = { (adt_string ~ NEWLINE)+ }
+
 
 adt_character_except_some = _{ !("{" | "}") ~ adt_character }
 
@@ -29,7 +32,7 @@ adt_enumeration = {
 
 year = {
     "19" ~ adt_digit{2} |
-     "20" ~ adt_digit{2}
+    "20" ~ adt_digit{2}
 }
 
 // Month MM from 01..12
@@ -101,10 +104,13 @@ field_name = {
 
 type_indicator = { ^"B" | ^"N" | ^"D" | ^"T" | ^"S" | ^"M" | ^"E" | ^"L" }
 
+
 end_of_data = {
-    NEWLINE |
-    EOI | 
-    &"<"
+    &NEWLINE |
+    &end_of_header |
+    &end_of_record |
+    &field |
+    &EOI
 }
 
 data = {
@@ -116,35 +122,75 @@ data = {
      (adt_integer ~ end_of_data) | 
      (adt_grid_square ~ end_of_data) |
      (adt_location ~ end_of_data) |
-     (adt_string ~ end_of_data) |
-     (adt_multi_string ~ end_of_data) | 
-     (adt_boolean ~ end_of_data)  
+     (adt_boolean ~ end_of_data) |
+     (adt_string ~ end_of_data ~ NEWLINE*) |
+     (adt_multi_string ~ end_of_data) 
+//     (adt_boolean ~ end_of_data)  
 }
 
-data_specifier = {
+
+/*
+data = {
+     adt_enumeration |
+     adt_number |
+     adt_time |
+     adt_date |
+     adt_positive_integer |
+     adt_integer |
+     adt_grid_square |
+     adt_location |
+     adt_string |
+     adt_multi_string |
+     adt_boolean
+}
+*/
+
+data_length = { adt_positive_integer }
+
+field = {
     "<" ~
     field_name ~
     ":" ~
-    adt_positive_integer ~
+    data_length ~
     (":" ~ type_indicator)? ~
-    ">" ~
-    data // TODO: can be empty string? Can be just NEWLINE?
+    ">"
 }
+
+//data_specifier = { field ~ data ~ end_of_data }
+//data_specifier = { field ~ data }
+data_specifier = { field ~ data ~ NEWLINE* }
 
 /// ADIF file header
 
-end_of_header = { ^"<EOH>" ~ NEWLINE* }
+//end_of_header = { ^"<EOH>" ~ NEWLINE* }
+end_of_header = { ^"<EOH>" }
 
+
+/*
 header = {
-    !("<") ~
-    adt_multi_string ~
+    !(&"<") ~
+    adt_string ~ adt_multi_string* ~
+    (data_specifier* ~ adt_multi_string)* ~
     data_specifier* ~
     end_of_header
 }
+*/
+
+///*
+header = {
+    !(&"<") ~
+    (adt_multi_string | adt_string) ~
+    (data_specifier* ~ adt_multi_string)* ~ 
+    data_specifier* ~ 
+    end_of_header
+}
+//*/
+
 
 /// ADIF file record
 
 end_of_record = { ^"<EOR>" ~ NEWLINE* }
+//end_of_record = { ^"<EOR>" }
 
 record = {
     data_specifier+ ~
@@ -155,7 +201,7 @@ record = {
 
 adi = { 
     SOI ~ NEWLINE* ~
-//    data_specifier ~ NEWLINE* ~
+//    data_specifier* ~ end_of_record ~ NEWLINE* ~
 //    field_name ~ NEWLINE* ~
 //    adt_enumeration* ~ NEWLINE* ~
 //    adt_number* ~ NEWLINE* ~
