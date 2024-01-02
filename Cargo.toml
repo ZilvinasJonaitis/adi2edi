@@ -1,11 +1,11 @@
 [package]
-name = "adi2reg"
+name = "adi2edi"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pest = "2.7.3"
-pest_derive = "2.7.3"
+pest = "2.7.5"
+pest_derive = "2.7.5"
 strip_bom = "1.0.0"

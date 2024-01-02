@@ -104,7 +104,7 @@ impl Reg1testHeader<'_> {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+// #[derive(Debug)]
 struct Reg1testRemarks<'a> {
     name: &'a str,
     multi_line: Vec<String>,
@@ -122,7 +122,16 @@ impl Default for Reg1testRemarks<'_> {
 impl fmt::Display for Reg1testRemarks<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}]", self.name)?;
+        Ok(())
+    }
+}
+
+
+impl fmt::Debug for Reg1testRemarks<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[{}]", self.name)?;
         if self.multi_line.len() != 0 {
+            // If there are remark lines
             for text_line in self.multi_line.iter() {
                 write!(f, "\n{}", text_line)?;
             }
