@@ -3,6 +3,8 @@ extern crate pest;
 extern crate pest_derive;
 
 use pest::Parser;
+use clap::Parser as clapParser;
+
 //use core::num;
 use std::env;
 use std::error::Error;
@@ -14,6 +16,23 @@ use strip_bom::*;
 #[derive(Parser)]
 #[grammar = r"adi.pest"]
 pub struct AdiParser;
+
+
+#[derive(clapParser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    // Name of input file (ADI)
+    #[arg(short, long)]
+    adi_file: String,
+    
+    // Name of output file (EDI)
+    #[arg(short, long)]
+    edi_file: String,
+    
+    // No remarks in EDI file
+    #[arg(short, long)]
+    noremarks: bool,
+}
 
 // use std::collections::HashMap;
 use std::fs;
@@ -622,12 +641,13 @@ fn adi_to_reg1test(
     r1t_header.tdate = pdate.as_str();
 
     let reg1test_result =
-        String::from_str(format!("{}\n{}\n{}", r1t_header, r1t_remarks, r1t_qso_records).as_ref())?;
+        String::from_str(format!("{}\n{:?}\n{}", r1t_header, r1t_remarks, r1t_qso_records).as_ref())?;
 
     return Ok(reg1test_result);
 }
 
 fn main() {
+/*
     let args: Vec<String> = env::args().collect();
 
     let adi_file_name = parse_args(&args).unwrap_or_else(|err| {
@@ -638,7 +658,15 @@ fn main() {
     // let reg_file_name = adi_file_name.to_ascii_uppercase().replace(".ADI", ".edi");
     // println!("\nOutput file: {}", reg_file_name);
 
-    let unparsed_string = fs::read_to_string(adi_file_name).unwrap_or_else(|err| {
+*/
+
+    let args = Args::parse();
+
+    println!("{}", args.adi_file);
+    println!("{}", args.edi_file);
+    println!("{}", args.noremarks);
+
+    let unparsed_string = fs::read_to_string(args.adi_file).unwrap_or_else(|err| {
         eprintln!("Error while reading file: {}", err);
         process::exit(1);
     });
