@@ -4,14 +4,16 @@ extern crate pest_derive;
 
 use pest::Parser;
 use clap::Parser as clapParser;
-
-//use core::num;
-use std::env;
 use std::error::Error;
 use std::fmt;
 use std::process;
 use std::str::FromStr;
 use strip_bom::*;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+// Atomic type bool global variable shared between main() and adi_to_reg1test()
+static NO_REMARKS: AtomicBool = AtomicBool::new(false);
 
 #[derive(Parser)]
 #[grammar = r"adi.pest"]
@@ -20,17 +22,17 @@ pub struct AdiParser;
 
 #[derive(clapParser, Debug)]
 #[command(author, version, about, long_about = None)]
-struct Args {
+struct CliArgs {
     // Name of input file (ADI)
-    #[arg(short, long)]
-    adi_file: String,
+    #[arg(short, long, value_name = "ADI FILE")]
+    infile: Option<PathBuf>,
     
     // Name of output file (EDI)
-    #[arg(short, long)]
-    edi_file: String,
+    #[arg(short, long, value_name = "EDI FILE")]
+    outfile: Option<PathBuf>,
     
     // No remarks in EDI file
-    #[arg(short, long)]
+    #[arg(long)]
     noremarks: bool,
 }
 
@@ -338,6 +340,7 @@ impl FoundCaptured {
     }
 }
 
+#[allow(dead_code)]
 fn parse_args(args: &[String]) -> Result<&str, &str> {
     if args.len() < 2 {
         return Err("ADIF filename is missing");
@@ -640,45 +643,104 @@ fn adi_to_reg1test(
     pdate.push_str(max_date_str);
     r1t_header.tdate = pdate.as_str();
 
-    let reg1test_result =
-        String::from_str(format!("{}\n{:?}\n{}", r1t_header, r1t_remarks, r1t_qso_records).as_ref())?;
+    let reg1test_result = if NO_REMARKS.load(Ordering::Relaxed) {
+        String::from_str(format!("{}\n{}\n{}", r1t_header, r1t_remarks, r1t_qso_records).as_ref())?
+    } else {
+        String::from_str(format!("{}\n{:?}\n{}", r1t_header, r1t_remarks, r1t_qso_records).as_ref())?
+    };
 
     return Ok(reg1test_result);
 }
 
-fn main() {
-/*
-    let args: Vec<String> = env::args().collect();
 
-    let adi_file_name = parse_args(&args).unwrap_or_else(|err| {
-        eprintln!("Error while parsing arguments: {}", err);
-        process::exit(1);
+fn main() -> std::io::Result<()> {
+    let args = CliArgs::parse();
+    let mut adi_file: PathBuf = Default::default();
+    let mut edi_file: PathBuf = Default::default();
+    let save_to_file;
+
+    // Validate name of ADI file
+    if let Some(s) = args.infile {
+        if !s.is_file() {
+            eprintln!("ERROR: input file not found");
+            process::exit(0);
+        }
+        if let Some(e) = s.extension() {
+            if e != "adi" {
+                eprintln!("ERROR: input file extension is incorrect");
+                process::exit(0);    
+            }
+        } else {
+            eprintln!("ERROR: input file without .adi extension");
+            process::exit(0);
+        }
+
+        // Input file name is correct
+        adi_file = s.clone();
+    } else {
+        eprintln!("ERROR: input file not specified");
+        eprintln!("\nUsage: adi2edi.exe [OPTIONS]");
+        eprintln!("\nFor more information, try '--help'.");
+    process::exit(0);
+    }
+    
+    // Validate name of EDI file
+    if let Some(s) = args.outfile {
+        if let Some(e) = s.extension() {
+            if e != "edi" {
+                eprintln!("ERROR: output file extension is incorrect");
+                process::exit(0);
+            }
+        } else {
+            eprintln!("ERROR: output file without .edi extension");
+            process::exit(0);
+        }
+
+        // Output file name is correct       
+       edi_file = s.clone();
+       // Save results to file
+       save_to_file = true;
+    } else {
+        // Output file not specified; output results to terminal
+        save_to_file = false;
+        
+        // This is the alternative way when output file is not specified
+        /*
+        // Output file not specified; create one from input file with .edi extension
+        edi_file.clone_from(&adi_file);
+        edi_file.set_extension("edi");
+        // Save results to file
+        save_to_file = true;
+        */
+    }
+    
+    // println!("Input filename: {:?}", adi_file.to_str().unwrap());
+    // println!("Output filename: {:?}", edi_file.to_str().unwrap());
+    // println!("Include remarks: {}", !args.noremarks);
+
+    NO_REMARKS.store(args.noremarks, Ordering::Relaxed);
+
+    let unparsed_string = fs::read_to_string(adi_file.to_str().unwrap()).unwrap_or_else(|err| {
+        eprintln!("ERROR: cannot open adi file: {}", err);
+        process::exit(0);
     });
 
-    // let reg_file_name = adi_file_name.to_ascii_uppercase().replace(".ADI", ".edi");
-    // println!("\nOutput file: {}", reg_file_name);
-
-*/
-
-    let args = Args::parse();
-
-    println!("{}", args.adi_file);
-    println!("{}", args.edi_file);
-    println!("{}", args.noremarks);
-
-    let unparsed_string = fs::read_to_string(args.adi_file).unwrap_or_else(|err| {
-        eprintln!("Error while reading file: {}", err);
-        process::exit(1);
-    });
-
+    // Run ADI parser and if successful collect in 'parse_result'
     match AdiParser::parse(Rule::adi, unparsed_string.strip_bom()) {
         Err(parse_error) => {
-            eprintln!("Error while parsing file: {}", parse_error);
-            process::exit(1);
+            eprintln!("ERROR: cannot parse adi file: {}", parse_error);
+            process::exit(0);
         }
         Ok(parse_result) => {
+            // Run ADI to Reg1test (EDI) converter and save results in string 'reg1test_output'
             let reg1test_output = adi_to_reg1test(parse_result).unwrap();
-            println!("{}", reg1test_output);
+            if save_to_file {
+                fs::write(edi_file.to_str().unwrap(), reg1test_output)?;
+                println!("Successfully saved to: {}", edi_file.to_str().unwrap());
+            } else {
+                println!("{}", reg1test_output);
+            }
         }
     }
+    Ok(())
 }
