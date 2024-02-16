@@ -12,8 +12,8 @@ use strip_bom::*;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-// Atomic type bool global variable shared between main() and adi_to_reg1test()
-static NO_REMARKS: AtomicBool = AtomicBool::new(false);
+// Global bool variable of Atomic type shared between main() and adi_to_reg1test()
+static SKIP_REMARKS: AtomicBool = AtomicBool::new(false);
 
 #[derive(Parser)]
 #[grammar = r"adi.pest"]
@@ -24,16 +24,16 @@ pub struct AdiParser;
 #[command(author, version, about, long_about = None)]
 struct CliArgs {
     // Name of input file (ADI)
-    #[arg(short, long, value_name = "ADI FILE")]
+    #[arg(short, long, value_name = "ADI file")]
     infile: Option<PathBuf>,
     
     // Name of output file (EDI)
-    #[arg(short, long, value_name = "EDI FILE")]
+    #[arg(short, long, value_name = "EDI file")]
     outfile: Option<PathBuf>,
     
     // No remarks in EDI file
-    #[arg(long)]
-    noremarks: bool,
+    #[arg(long = "skip-remarks")]
+    skip_remarks: bool,
 }
 
 // use std::collections::HashMap;
@@ -643,19 +643,19 @@ fn adi_to_reg1test(
     pdate.push_str(max_date_str);
     r1t_header.tdate = pdate.as_str();
 
-    let reg1test_result = if NO_REMARKS.load(Ordering::Relaxed) {
+    let reg1test_result = if SKIP_REMARKS.load(Ordering::Relaxed) {
         String::from_str(format!("{}\n{}\n{}", r1t_header, r1t_remarks, r1t_qso_records).as_ref())?
     } else {
         String::from_str(format!("{}\n{:?}\n{}", r1t_header, r1t_remarks, r1t_qso_records).as_ref())?
     };
 
-    return Ok(reg1test_result);
+    Ok(reg1test_result)
 }
 
 
 fn main() -> std::io::Result<()> {
     let args = CliArgs::parse();
-    let mut adi_file: PathBuf = Default::default();
+    let adi_file; //: PathBuf = Default::default();
     let mut edi_file: PathBuf = Default::default();
     let save_to_file;
 
@@ -716,9 +716,9 @@ fn main() -> std::io::Result<()> {
     
     // println!("Input filename: {:?}", adi_file.to_str().unwrap());
     // println!("Output filename: {:?}", edi_file.to_str().unwrap());
-    // println!("Include remarks: {}", !args.noremarks);
+    // println!("Include remarks: {}", !args.skip_remarks);
 
-    NO_REMARKS.store(args.noremarks, Ordering::Relaxed);
+    SKIP_REMARKS.store(args.skip_remarks, Ordering::Relaxed);
 
     let unparsed_string = fs::read_to_string(adi_file.to_str().unwrap()).unwrap_or_else(|err| {
         eprintln!("ERROR: cannot open adi file: {}", err);
