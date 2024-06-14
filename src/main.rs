@@ -61,7 +61,8 @@ fn main() -> std::io::Result<()> {
     }
     
     // Validate name of EDI file
-    if let Some(s) = args.outfile {
+    if let Some(s) = args.outfile
+    {
         if let Some(e) = s.extension() {
             if e != "edi" {
                 eprintln!("ERROR: output file extension is incorrect");
@@ -76,18 +77,21 @@ fn main() -> std::io::Result<()> {
        edi_file = s.clone();
        // Save results to file
        save_to_file = true;
-    } else {
-        // Output file not specified; output results to terminal
-        save_to_file = false;
+    }
+    else // output file not specified
+    {
+        if args.to_file {
+            // Create output file from input file with extension .edi
+            edi_file.clone_from(&adi_file);
+            edi_file.set_extension("edi");
+            // Save results to file
+            save_to_file = true;
+        }
+        else {            
+            // Neither output file nor -f flag is specified; output results to terminal
+            save_to_file = false;
+        }
         
-        // This is the alternative way when output file is not specified
-        /*
-        // Output file not specified; create one from input file with .edi extension
-        edi_file.clone_from(&adi_file);
-        edi_file.set_extension("edi");
-        // Save results to file
-        save_to_file = true;
-        */
     }
     
     // println!("Input filename: {:?}", adi_file.to_str().unwrap());

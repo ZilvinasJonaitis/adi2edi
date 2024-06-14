@@ -5,16 +5,20 @@ pub use std::path::PathBuf;
 #[derive(clapParser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct CliArgs {
-    // Name of input file (ADI)
-    #[arg(short, long, value_name = "ADI file")]
+    // Input file (ADI)
+    #[arg(index = 1, required = true, help = "ADI file" /*, short, long, value_name = "ADI file"*/)]
     pub infile: Option<PathBuf>,
     
-    // Name of output file (EDI)
-    #[arg(short, long, value_name = "EDI file")]
+    // Output file (EDI)
+    #[arg(index = 2, help = "EDI file (consider -f if not specified)" /*, short, long, value_name = "EDI file"*/)]
     pub outfile: Option<PathBuf>,
-    
+
+    // Default output to file
+    #[arg(short = 'f', long = "to-file", help = "output to file")]
+    pub to_file: bool,
+
     // No remarks in EDI file
-    #[arg(long = "skip-remarks")]
+    #[arg(short = 's', long = "skip-remarks")]
     pub skip_remarks: bool,
 }
 
