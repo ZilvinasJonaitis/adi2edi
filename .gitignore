@@ -1,13 +1,16 @@
 # exclude all folders and files under folder 'target' and 'test'
 target/*
 test/*
+
 # make exception for folders only (/ at the end)
-!target/*/
+# !target/*/
+
 # exclude all folders and files under subfolder 'debug' and 'release'
-target/debug/*
-target/release/*
+# target/debug/*
+# target/release/*
+
 # make an exception for executable files '*.exe' under specified subfolders
-!target/debug/*.exe
-!target/release/*.exe
+# !target/debug/*.exe
+# !target/release/*.exe
 
 Cargo.lock
