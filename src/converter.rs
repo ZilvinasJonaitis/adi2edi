@@ -8,11 +8,25 @@ use crate::Rule;
 use crate::SKIP_REMARKS;
 use core::sync::atomic::Ordering;
 use std::error::Error;
-use std::str::FromStr;
+// use std::str::FromStr;
+
+pub struct Band<'a> {
+    pub header: Reg1testHeader<'a>,
+    pub records: Reg1testQSOs<'a>, 
+}
+
+impl<'a> Band<'a> {
+    pub fn add_qso(&mut self, qso: Reg1testQSORecord<'a>) {
+        self.records.qso_records.push(qso);
+        self.records.count += 1;
+    }
+}
 
 pub fn convert_to_reg1test(
     mut parse_result: pest::iterators::Pairs<'_, Rule>,
 ) -> Result<String, Box<dyn Error>> {
+    let mut band_array: Vec<Band> = Vec::new();
+
     let mut r1t_header: Reg1testHeader = Reg1testHeader::default();
     let mut r1t_remarks = Reg1testRemarks::default();
     let mut r1t_qso_records = Reg1testQSOs::default();
@@ -20,16 +34,11 @@ pub fn convert_to_reg1test(
 
     let mut station_callsign = FoundCaptured::default();
     let mut my_square = FoundCaptured::default();
-    let mut band = FoundCaptured::default();
 
     let mut min_date: u32 = 99991231; // extremely large date as number
     let mut min_date_str: &str = "";
-    let mut max_date: u32 = 0; // extremly small date as number
+    let mut max_date: u32 = 0; // extremely small date as number
     let mut max_date_str: &str = "";
-
-    r1t_remarks
-        .multi_line
-        .push("Converted from ADIF to REG1TEST. ADIF header below:".to_owned());
 
     let parsed_adi_rules = parse_result.next().unwrap();
 
@@ -141,6 +150,7 @@ pub fn convert_to_reg1test(
             Rule::record => {
                 // println!("{:?}", inner_pair.as_str().trim());
                 let mut call = FoundCaptured::default();
+                let mut band = FoundCaptured::default();  // was missing?
                 let mut qso_date = FoundCaptured::default();
                 let mut time = FoundCaptured::default();
                 let mut mode = FoundCaptured::default();
@@ -287,6 +297,28 @@ pub fn convert_to_reg1test(
                 }
                 r1t_qso_records.qso_records.push(r1t_record);
                 // println!("{:?}", r1t_record);
+
+                let mut band_found = false;
+                for band in band_array.iter_mut() {
+                    if band.header.pband == r1t_header.pband {
+                        band.add_qso(r1t_record);
+                        // band.records.qso_records.push(r1t_record);
+                        // band.records.count += 1; 
+                        band_found = true;
+                        break
+                    }
+                }
+                if band_found == false {
+                    let mut new_band = Band {
+                        header: Reg1testHeader::default(),
+                        records: Reg1testQSOs::default()
+                    };
+                    new_band.header = r1t_header.clone();
+                    new_band.add_qso(r1t_record);
+                    // new_band.records.qso_records.push(r1t_record);
+                    // new_band.records.count += 1;
+                    band_array.push(new_band);
+                }
             }
             Rule::EOI => (),
             _ => unreachable!(),
@@ -298,11 +330,17 @@ pub fn convert_to_reg1test(
     pdate.push_str(max_date_str);
     r1t_header.tdate = pdate.as_str();
 
-    let reg1test_result = if SKIP_REMARKS.load(Ordering::Relaxed) {
-        String::from_str(format!("{}\n{}\n{}", r1t_header, r1t_remarks, r1t_qso_records).as_ref())?
-    } else {
-        String::from_str(format!("{}\n{:?}\n{}", r1t_header, r1t_remarks, r1t_qso_records).as_ref())?
-    };
+    let mut reg1test_result = String::new();
 
+    for band in band_array.iter_mut() {
+        band.header.tdate = pdate.as_str();
+
+        if SKIP_REMARKS.load(Ordering::Relaxed) {
+            r1t_remarks.multi_line.clear()
+        };
+
+        reg1test_result.push_str(format!("{}\n{}\n{}\n", band.header, r1t_remarks, band.records).as_ref())
+
+    }
     Ok(reg1test_result)
 }

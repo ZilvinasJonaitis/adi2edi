@@ -1,8 +1,14 @@
 use std::fmt;
 
+const DEFAULT_REMARKS: &'static str = "\
+    Converted from ADIF using 'adi2edi' converter\n\
+    (https://github.com/ZilvinasJonaitis/adi2edi)\n\
+    Original ADIF header below the line:\n\
+    ---------------------------------------------\
+";
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Reg1testHeader<'a> {
     pub name: &'a str,
     pub tdate: &'a str,
@@ -31,8 +37,8 @@ impl fmt::Display for Reg1testHeader<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}]\n", self.name)?;
         write!(f, "TDate={}\n", self.tdate)?;
-        write!(f, "PCall={}\n", self.pcall)?;
-        write!(f, "PWWLo={}\n", self.pwwlo)?;
+        write!(f, "PCall={}\n", self.pcall.to_ascii_uppercase())?;
+        write!(f, "PWWLo={}\n", self.pwwlo.to_ascii_uppercase())?;
         write!(f, "PBand={}", self.pband)?;
         if self.psect != "" {
             write!(f, "\nPSect={}", self.psect)?;
@@ -97,20 +103,12 @@ impl Default for Reg1testRemarks<'_> {
     fn default() -> Self {
         Reg1testRemarks {
             name: "Remarks",
-            multi_line: Vec::new(),
+            multi_line: vec![DEFAULT_REMARKS.to_owned()],
         }
     }
 }
 
 impl fmt::Display for Reg1testRemarks<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}]", self.name)?;
-        Ok(())
-    }
-}
-
-
-impl fmt::Debug for Reg1testRemarks<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[{}]", self.name)?;
         if self.multi_line.len() != 0 {
@@ -220,19 +218,19 @@ impl fmt::Display for Reg1testQSORecord<'_> {
             "{};{};{};{};{};{};{};{};{};{};{};{};{};{};{}\n",
             self.date,
             self.time,
-            self.call,
+            self.call.to_ascii_uppercase(),
             self.mode_code,
             self.sent_rst,
             sent_qso_num,
             self.received_rst,
             received_qso_num,
             self.received_exchange,
-            self.received_wwl,
+            self.received_wwl.to_ascii_uppercase(), // IARU-R1 VHF Handbook 10.02: 5.2.5 Notation of locators  
             self.qso_points,
-            self.new_exchange,
-            self.new_wwl,
-            self.new_dxcc,
-            self.duplicate_qso,
+            self.new_exchange.to_ascii_uppercase(),
+            self.new_wwl.to_ascii_uppercase(),
+            self.new_dxcc.to_ascii_uppercase(),
+            self.duplicate_qso.to_ascii_uppercase(),
         )
     }
 }

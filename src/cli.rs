@@ -14,7 +14,7 @@ pub struct CliArgs {
     pub outfile: Option<PathBuf>,
 
     // Default output to file
-    #[arg(short = 'f', long = "to-file", help = "output to file")]
+    #[arg(short = 'f', long = "to-file", help = "output to file(s)")]
     pub to_file: bool,
 
     // No remarks in EDI file
